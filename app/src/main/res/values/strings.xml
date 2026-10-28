@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">玫枫五笔</string>
+    <string name="ime_name">玫枫五笔</string>
+    <string name="ime_subtype">五笔 86</string>
+</resources>

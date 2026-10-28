@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:isDefault="true"
+    android:settingsActivity="cn.kylebing.meifeng.wubi.ui.MainActivity"
+    android:supportsSwitchingToNextInputMethod="true">
+    <subtype
+        android:imeSubtypeLocale="zh_CN"
+        android:imeSubtypeMode="keyboard"
+        android:isAsciiCapable="true"
+        android:label="@string/ime_subtype"
+        android:subtypeId="1" />
+</input-method>

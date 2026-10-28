@@ -1,0 +1,342 @@
+        <!DOCTYPE html>
+        <html lang="zh-CN">
+        <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1"/>
+        <title>玫枫五笔 · 配置文件管理</title>
+        <style>
+          :root { color-scheme: light dark; --bg:#f4f4f5; --card:#fff; --line:#e4e4e7; --txt:#18181b; --muted:#71717a; --accent:#2563eb; --danger:#dc2626; }
+          @media (prefers-color-scheme: dark) {
+            :root { --bg:#09090b; --card:#18181b; --line:#27272a; --txt:#fafafa; --muted:#a1a1aa; --accent:#60a5fa; --danger:#f87171; }
+          }
+          * { box-sizing: border-box; }
+          body { margin:0; font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--txt); }
+          header { padding:20px 24px 8px; max-width:960px; margin:0 auto; }
+          h1 { font-size:20px; margin:0 0 4px; font-weight:650; }
+          .sub { color:var(--muted); font-size:13px; }
+          main { max-width:960px; margin:0 auto; padding:12px 24px 48px; }
+          .toolbar { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; align-items:center; }
+          button, label.btn { appearance:none; border:1px solid var(--line); background:var(--card); color:var(--txt); border-radius:8px; padding:8px 12px; font:inherit; cursor:pointer; }
+          button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+          button.danger { color:var(--danger); border-color:color-mix(in srgb, var(--danger) 35%, var(--line)); }
+          button:disabled { opacity:.45; cursor:not-allowed; }
+          label.btn input { display:none; }
+          .card { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+          table { width:100%; border-collapse:collapse; }
+          th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:middle; }
+          th { font-size:12px; color:var(--muted); font-weight:600; background:color-mix(in srgb, var(--card) 88%, var(--bg)); }
+          tr:last-child td { border-bottom:none; }
+          tr:hover td { background:color-mix(in srgb, var(--accent) 6%, transparent); }
+          .path { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; word-break:break-all; }
+          .meta { color:var(--muted); font-size:12px; white-space:nowrap; }
+          .status { margin-top:12px; color:var(--muted); min-height:1.2em; }
+          .status.err { color:var(--danger); }
+          .drop { margin-top:12px; border:1.5px dashed var(--line); border-radius:12px; padding:28px; text-align:center; color:var(--muted); background:var(--card); }
+          .drop.over { border-color:var(--accent); color:var(--accent); }
+          .badge { display:inline-block; font-size:11px; padding:2px 6px; border-radius:999px; background:color-mix(in srgb, var(--muted) 18%, transparent); color:var(--muted); margin-left:6px; }
+        </style>
+        </head>
+        <body>
+        <header>
+          <h1>配置文件管理</h1>
+          <p class="sub">保持手机 App 本页打开 · 修改后打开键盘会自动部署</p>
+        </header>
+        <main>
+          <div class="toolbar">
+            <label class="btn primary">上传文件<input id="fileInput" type="file" multiple/></label>
+            <label class="btn primary">上传目录<input id="dirInput" type="file" multiple webkitdirectory directory/></label>
+            <button id="btnDeploy" class="primary">部署 Rime</button>
+            <button id="btnRefresh">刷新</button>
+            <button id="btnDelete" class="danger" disabled>删除所选</button>
+            <button id="btnClear" class="danger">清空目录</button>
+            <button id="btnRestore" class="danger">复位原始配置</button>
+            <span id="selInfo" class="meta"></span>
+          </div>
+          <div id="drop" class="drop">拖入文件或文件夹到此处（可批量，保留目录结构）</div>
+          <div class="card" style="margin-top:12px">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:36px"><input type="checkbox" id="checkAll"/></th>
+                  <th>路径</th>
+                  <th style="width:100px">大小</th>
+                  <th style="width:160px">修改时间</th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+          <p id="status" class="status"></p>
+        </main>
+        <script>
+        const api = (path, opts={}) => fetch(path, opts).then(async r => {
+          const text = await r.text();
+          let j = {};
+          try { j = text ? JSON.parse(text) : {}; } catch (_) {
+            if (!r.ok) throw new Error(text || ('HTTP ' + r.status));
+          }
+          if (!r.ok || j.ok === false) throw new Error(j.error || text || ('HTTP ' + r.status));
+          return j;
+        });
+        const tbody = document.getElementById('tbody');
+        const statusEl = document.getElementById('status');
+        const selInfo = document.getElementById('selInfo');
+        const btnDelete = document.getElementById('btnDelete');
+        let files = [];
+
+        function setStatus(msg, err=false) {
+          statusEl.textContent = msg || '';
+          statusEl.className = 'status' + (err ? ' err' : '');
+        }
+        function fmtSize(n) {
+          if (n < 1024) return n + ' B';
+          if (n < 1048576) return (n/1024).toFixed(1) + ' KB';
+          return (n/1048576).toFixed(1) + ' MB';
+        }
+        function fmtTime(t) {
+          if (!t) return '—';
+          return new Date(t * 1000).toLocaleString();
+        }
+        function selected() {
+          return [...tbody.querySelectorAll('input.row:checked')].map(el => el.value);
+        }
+        function updateSel() {
+          const n = selected().length;
+          selInfo.textContent = n ? ('已选 ' + n + ' 项') : '';
+          btnDelete.disabled = n === 0;
+        }
+        function render() {
+          tbody.innerHTML = '';
+          if (!files.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="meta" style="padding:24px;text-align:center">目录为空</td></tr>';
+            updateSel();
+            return;
+          }
+          for (const f of files) {
+            const tr = document.createElement('tr');
+            const badge = f.isDirectory ? '<span class="badge">目录</span>' : '';
+            tr.innerHTML = `
+              <td><input type="checkbox" class="row" value="${f.path.replace(/"/g,'&quot;')}"/></td>
+              <td class="path">${f.path}${badge}</td>
+              <td class="meta">${f.isDirectory ? '—' : fmtSize(f.size)}</td>
+              <td class="meta">${fmtTime(f.mtime)}</td>`;
+            tbody.appendChild(tr);
+          }
+          tbody.querySelectorAll('input.row').forEach(el => el.addEventListener('change', updateSel));
+          updateSel();
+        }
+        async function refresh() {
+          setStatus('加载中…');
+          try {
+            const j = await api('/api/files');
+            files = j.files || [];
+            render();
+            setStatus('共 ' + files.length + ' 项');
+          } catch (e) {
+            setStatus(String(e.message || e), true);
+          }
+        }
+        async function uploadEntries(entries) {
+          if (!entries || !entries.length) return;
+          // 分批上传，避免整目录一次超过服务端限制（413）
+          const MAX_BATCH_BYTES = 12 * 1024 * 1024;
+          const MAX_BATCH_ITEMS = 48;
+          const batches = [];
+          let cur = [];
+          let curBytes = 0;
+          for (const e of entries) {
+            const path = String(e.path || '').split('\\\\').join('/').replace(new RegExp('^/+'), '');
+            if (!path || path.includes('..')) continue;
+            const size = e.isDir ? 64 : (e.file && e.file.size ? e.file.size : 0);
+            if (cur.length && (cur.length >= MAX_BATCH_ITEMS || curBytes + size > MAX_BATCH_BYTES)) {
+              batches.push(cur);
+              cur = [];
+              curBytes = 0;
+            }
+            cur.push({ path, file: e.file, isDir: !!e.isDir });
+            curBytes += size;
+          }
+          if (cur.length) batches.push(cur);
+          if (!batches.length) {
+            setStatus('没有可上传的内容', true);
+            return;
+          }
+          let saved = 0;
+          let dirs = 0;
+          try {
+            for (let i = 0; i < batches.length; i++) {
+              const batch = batches[i];
+              const fileCount = batch.filter(x => !x.isDir).length;
+              const dirCount = batch.filter(x => x.isDir).length;
+              setStatus('上传中… ' + (i + 1) + '/' + batches.length
+                + '（本批文件 ' + fileCount + (dirCount ? ' · 目录 ' + dirCount : '') + '）');
+              const fd = new FormData();
+              for (const e of batch) {
+                if (e.isDir) {
+                  // 路径放在字段值里（不要依赖 multipart filename）
+                  fd.append('dirs', e.path);
+                } else if (e.file) {
+                  // 相对路径单独传：浏览器常会剥掉 filename 中的目录
+                  fd.append('relpaths', e.path);
+                  fd.append('files', e.file, e.path.split('/').pop() || e.file.name);
+                }
+              }
+              const j = await api('/api/upload', { method:'POST', body: fd });
+              saved += (j.saved || 0);
+              dirs += (j.dirs || 0);
+            }
+            setStatus('已保存 ' + saved + ' 个文件' + (dirs ? (' · 目录 ' + dirs) : ''));
+            await refresh();
+          } catch (e) {
+            setStatus(String(e.message || e), true);
+          }
+        }
+        function entriesFromFileList(fileList) {
+          const out = [];
+          for (const f of fileList) {
+            const path = (f.webkitRelativePath || f.name || '').split('\\\\').join('/');
+            if (!path) continue;
+            out.push({ path, file: f, isDir: false });
+          }
+          return stripCommonRootFolder(out);
+        }
+        // 上传整个文件夹时去掉最外层目录名，让 schema 落在配置根目录
+        function stripCommonRootFolder(entries) {
+          if (!entries.length) return entries;
+          const paths = entries.map(e => e.path);
+          const top = paths[0].split('/')[0];
+          if (!top) return entries;
+          if (!paths.every(p => p === top || p.startsWith(top + '/'))) return entries;
+          if (!paths.some(p => p.startsWith(top + '/'))) return entries;
+          // 顶层已是码表文件则不剥
+          if (/\\.(ya?ml|txt)$/i.test(top) && paths.includes(top)) return entries;
+          return entries.flatMap(e => {
+            if (e.path === top) return [];
+            return [{ path: e.path.slice(top.length + 1), file: e.file, isDir: e.isDir }];
+          });
+        }
+        function readAllEntries(reader) {
+          return new Promise((resolve, reject) => {
+            const acc = [];
+            const pump = () => reader.readEntries(batch => {
+              if (!batch.length) return resolve(acc);
+              acc.push(...batch);
+              pump();
+            }, reject);
+            pump();
+          });
+        }
+        async function walkEntry(entry, prefix, out) {
+          const name = entry.name;
+          const path = prefix ? (prefix + '/' + name) : name;
+          if (entry.isFile) {
+            const file = await new Promise((res, rej) => entry.file(res, rej));
+            out.push({ path, file, isDir: false });
+          } else if (entry.isDirectory) {
+            out.push({ path, isDir: true });
+            const reader = entry.createReader();
+            const children = await readAllEntries(reader);
+            for (const child of children) {
+              await walkEntry(child, path, out);
+            }
+          }
+        }
+        async function entriesFromDataTransfer(dt) {
+          const out = [];
+          const items = [...(dt.items || [])];
+          // 同时拖文件+文件夹时优先走 Entry API，才能递归目录
+          const entryItems = [];
+          for (const item of items) {
+            if (item.kind !== 'file') continue;
+            const entry = item.webkitGetAsEntry && item.webkitGetAsEntry();
+            if (entry) entryItems.push(entry);
+          }
+          if (entryItems.length) {
+            for (const entry of entryItems) {
+              await walkEntry(entry, '', out);
+            }
+            return stripCommonRootFolder(out);
+          }
+          return entriesFromFileList(dt.files || []);
+        }
+        document.getElementById('fileInput').addEventListener('change', e => {
+          uploadEntries(entriesFromFileList(e.target.files));
+          e.target.value = '';
+        });
+        document.getElementById('dirInput').addEventListener('change', e => {
+          uploadEntries(entriesFromFileList(e.target.files));
+          e.target.value = '';
+        });
+        document.getElementById('btnRefresh').onclick = refresh;
+        document.getElementById('btnDeploy').onclick = async () => {
+          if (!confirm('基于当前配置目录部署 Rime？')) return;
+          const btn = document.getElementById('btnDeploy');
+          btn.disabled = true;
+          setStatus('正在部署…');
+          try {
+            await api('/api/deploy', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+            setStatus('部署成功，打开手机键盘后生效');
+            await refresh();
+          } catch (e) {
+            setStatus(String(e.message || e), true);
+          } finally {
+            btn.disabled = false;
+          }
+        };
+        document.getElementById('checkAll').onchange = e => {
+          tbody.querySelectorAll('input.row').forEach(el => { el.checked = e.target.checked; });
+          updateSel();
+        };
+        btnDelete.onclick = async () => {
+          const paths = selected();
+          if (!paths.length) return;
+          if (!confirm('删除选中的 ' + paths.length + ' 项？')) return;
+          try {
+            const j = await api('/api/delete', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ paths })
+            });
+            setStatus('已删除 ' + j.deleted + ' 项');
+            await refresh();
+          } catch (e) { setStatus(String(e.message || e), true); }
+        };
+        document.getElementById('btnClear').onclick = async () => {
+          if (!confirm('清空整个 Rime 配置目录？此操作不可撤销。')) return;
+          try {
+            const j = await api('/api/clear', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+            setStatus('已清空 ' + j.cleared + ' 项');
+            await refresh();
+          } catch (e) { setStatus(String(e.message || e), true); }
+        };
+        document.getElementById('btnRestore').onclick = async () => {
+          if (!confirm('将清空配置目录，恢复 App 内置原始方案并立即部署。用户词也会被重置，确定？')) return;
+          const btn = document.getElementById('btnRestore');
+          btn.disabled = true;
+          setStatus('正在复位原始配置…');
+          try {
+            await api('/api/restore-bundled', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+            setStatus('已复位原始配置并部署，打开手机键盘后即可输入');
+            await refresh();
+          } catch (e) {
+            setStatus(String(e.message || e), true);
+          } finally {
+            btn.disabled = false;
+          }
+        };
+        const drop = document.getElementById('drop');
+        ;['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+        ;['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+        drop.addEventListener('drop', async e => {
+          try {
+            const entries = await entriesFromDataTransfer(e.dataTransfer);
+            await uploadEntries(entries);
+          } catch (err) {
+            setStatus(String(err.message || err), true);
+          }
+        });
+        refresh();
+        </script>
+        </body>
+        </html>
+        
