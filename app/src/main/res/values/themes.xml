@@ -1,11 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 冷启动：背景色 + 居中 logo -->
+    <style name="Theme.MeifengWubi.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+        <item name="postSplashScreenTheme">@style/Theme.MeifengWubi</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_bg</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <!-- API 31 以下用 layer-list 兜底 -->
+        <item name="android:windowBackground">@drawable/splash_screen</item>
+    </style>
+
     <style name="Theme.MeifengWubi" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">#F95353</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
+
     <style name="Theme.MeifengWubi.Ime" parent="Theme.MeifengWubi">
         <item name="android:windowBackground">@android:color/transparent</item>
     </style>
