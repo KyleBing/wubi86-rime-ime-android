@@ -546,6 +546,7 @@ class WubiImeService : InputMethodService(), KeyboardListener {
         if (index < specialCount) {
             val t = displayed[index]
             engine.clearComposition()
+            engine.noteLastCommit(t)
             insertCommitted(t)
             refreshCandidates()
             return

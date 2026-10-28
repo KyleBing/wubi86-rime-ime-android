@@ -594,13 +594,21 @@ fun SyncAccountScreen(onChanged: () -> Unit) {
             }
         }
 
-        item {
-            SettingsCard(title = "注册账号") {
-            Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-            TextButton(onClick = { uri.openUri(WubiCloudConfig.registerUrl()) }) { Text("在浏览器中使用邀请码注册") }
-            TextButton(onClick = { uri.openUri(WubiCloudConfig.registerApplyUrl()) }) { Text("在浏览器中申请注册") }
-            Text("付费用户可先提交申请，审核通过后将收到邀请码邮件；已有邀请码可直接打开注册页。", Modifier.padding(horizontal = 8.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        val loggedIn = account?.isLoggedIn == true
+        if (!loggedIn) {
+            item {
+                SettingsCard(title = "注册账号") {
+                    Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        TextButton(onClick = { uri.openUri(WubiCloudConfig.registerUrl()) }) { Text("在浏览器中使用邀请码注册") }
+                        TextButton(onClick = { uri.openUri(WubiCloudConfig.registerApplyUrl()) }) { Text("在浏览器中申请注册") }
+                        Text(
+                            "付费用户可先提交申请，审核通过后将收到邀请码邮件；已有邀请码可直接打开注册页。",
+                            Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
 

@@ -351,6 +351,7 @@ private fun LookPage() {
 @Composable
 private fun InputPage() {
     var comment by remember { mutableStateOf(KeyboardPrefs.showCommentInPanel) }
+    var uniqueFour by remember { mutableStateOf(KeyboardPrefs.autoSelectUniqueFourCode) }
     var empty by remember { mutableStateOf(KeyboardPrefs.clearEmptyCode) }
     var enter by remember { mutableStateOf(KeyboardPrefs.enterClearsCode) }
     var close by remember { mutableStateOf(KeyboardPrefs.closesSymbolPageAfterInput) }
@@ -361,6 +362,8 @@ private fun InputPage() {
         item {
             SettingsCard(title = "五笔打码") {
                 ToggleRow("显示候选备注", comment) { comment = it; KeyboardPrefs.showCommentInPanel = it }
+                HorizontalDivider(Modifier.padding(start = 16.dp))
+                ToggleRow("四码唯一上屏", uniqueFour) { uniqueFour = it; KeyboardPrefs.autoSelectUniqueFourCode = it }
                 HorizontalDivider(Modifier.padding(start = 16.dp))
                 ToggleRow("空码清空", empty) { empty = it; KeyboardPrefs.clearEmptyCode = it }
                 HorizontalDivider(Modifier.padding(start = 16.dp))

@@ -32,6 +32,24 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 然后：系统设置 → 系统 → 语言和输入法 → 屏幕键盘 → 管理键盘 → 启用「玫枫五笔」，再在输入框切换到该键盘。
 
+## 打包与发布
+
+```bash
+./gradlew :app:assembleRelease
+```
+
+推 `v1.0.1` 这类标签时，`.github/workflows/release.yml` 会在 Ubuntu runner 上打 Release APK 并发布到**本仓库**的 Releases，更新说明取自 `CHANGELOG.md` 对应版本。发版前先把 `app/build.gradle.kts` 里的 `versionName` / `versionCode` 改好并提交；标签与版本不一致时工作流会直接失败。
+
+附件名固定为 `MeifengWubi-Android.apk`，说明站只用一条不变的地址：
+
+```
+https://github.com/KyleBing/wubi86-rime-ime-android/releases/latest/download/MeifengWubi-Android.apk
+```
+
+仓库 Secrets 里配好 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD` 才会用正式签名；没配时用 debug 签名打 release 包，便于 CI 出包。
+
+注意：仓库必须是 public，未登录的人才能下载 Release 附件。
+
 ## 云端同步
 
 与 macOS、Windows、iOS、码表助手共用门户：

@@ -57,6 +57,10 @@ object KeyboardPrefs {
         get() = if (p.getInt("keyboard.candidateRank.step", 5) == 10) 10 else 5
         set(v) { p.edit().putInt("keyboard.candidateRank.step", if (v == 10) 10 else 5).commit() }
 
+    var autoSelectUniqueFourCode: Boolean
+        get() = p.getBoolean("keyboard.fourCode.autoSelectUnique", false)
+        set(v) { p.edit().putBoolean("keyboard.fourCode.autoSelectUnique", v).commit() }
+
     var clearEmptyCode: Boolean
         get() = p.getBoolean("keyboard.emptyCode.clear", false)
         set(v) { p.edit().putBoolean("keyboard.emptyCode.clear", v).commit() }

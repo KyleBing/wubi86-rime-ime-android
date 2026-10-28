@@ -2,10 +2,12 @@ package cn.kylebing.meifeng.wubi.data
 
 data class EngineCandidate(val text: String, val comment: String)
 
-/** 对齐 Rime wubi86_jidian：四码、唯一自动上屏、编码补全、z 拼音反查 */
+/** 对齐 Rime wubi86_jidian：四码、可选的唯一自动上屏、编码补全、z 拼音反查 */
 class WubiEngine {
     private val composition = StringBuilder()
     private var pendingCommit: String? = null
+    // 最近一次候选上屏，单独按 z 时放到候选首位
+    private var lastCommit: String = ""
     @Volatile var isReady = false
         private set
 
@@ -66,7 +68,13 @@ class WubiEngine {
     fun commitText(): String? {
         val t = pendingCommit
         pendingCommit = null
+        if (!t.isNullOrEmpty()) lastCommit = t
         return t
+    }
+
+    // 预置候选（日期时间）上屏时也记下来，方便 z 重复
+    fun noteLastCommit(text: String) {
+        if (text.isNotEmpty()) lastCommit = text
     }
 
     fun clearComposition() {
@@ -88,10 +96,14 @@ class WubiEngine {
         code.forEach { if (it in 'a'..'z') composition.append(it) }
     }
 
+    // 四码唯一：开关打开且整码只有一个候选时上屏；date / time 等预置编码不参与
     private fun tryAutoSelect() {
+        if (!KeyboardPrefs.autoSelectUniqueFourCode) return
         if (composition.startsWith("z")) return
         if (composition.length != 4) return
-        val exact = DictIndex.shared.exact(composition.toString())
+        val code = composition.toString()
+        if (DateTimeCandidates.candidates(code) != null) return
+        val exact = DictIndex.shared.exact(code)
         if (exact.size == 1) {
             pendingCommit = exact[0].text
             composition.clear()
@@ -112,7 +124,12 @@ class WubiEngine {
             val rest = currentRimeCandidates()
             return special.map { EngineCandidate(it, "") } + rest
         }
-        return currentRimeCandidates()
+        val rest = currentRimeCandidates()
+        // 单独按 z：上次上屏排在首位，继续打拼音仍走反查
+        if (pre == "z" && lastCommit.isNotEmpty()) {
+            return listOf(EngineCandidate(lastCommit, "")) + rest.filter { it.text != lastCommit }
+        }
+        return rest
     }
 
     private fun currentRimeCandidates(): List<EngineCandidate> {
