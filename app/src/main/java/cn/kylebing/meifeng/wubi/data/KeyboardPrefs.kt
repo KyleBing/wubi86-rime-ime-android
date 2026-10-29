@@ -57,8 +57,9 @@ object KeyboardPrefs {
         get() = if (p.getInt("keyboard.candidateRank.step", 5) == 10) 10 else 5
         set(v) { p.edit().putInt("keyboard.candidateRank.step", if (v == 10) 10 else 5).commit() }
 
+    // 四码唯一：打满四码且只有一个候选时自动上屏。默认开
     var autoSelectUniqueFourCode: Boolean
-        get() = p.getBoolean("keyboard.fourCode.autoSelectUnique", false)
+        get() = p.getBoolean("keyboard.fourCode.autoSelectUnique", true)
         set(v) { p.edit().putBoolean("keyboard.fourCode.autoSelectUnique", v).commit() }
 
     var clearEmptyCode: Boolean
